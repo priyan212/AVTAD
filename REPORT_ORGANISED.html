@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Training Metrics - Research Paper Standard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            color: #000000;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .graph-container {
+            margin: 40px 0;
+            padding: 20px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .graph-title {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #000;
+        }
+        .graph-subtitle {
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        canvas {
+            max-width: 100%;
+            height: 400px !important;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .control-group {
+            display: inline-block;
+            margin: 0 10px;
+        }
+        button {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 8px 16px;
+            margin: 0 5px;
+            cursor: pointer;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        button.active {
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #e0e0e0;
+        }
+        button.active:hover {
+            background: #005a99;
+        }
+        .legend {
+            font-size: 11px;
+            margin-top: 10px;
+        }
+        .paper-info {
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center; font-size: 16px; margin-bottom: 30px;">Object Detection Model Training Metrics</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label style="font-size: 12px; margin-right: 10px;">View:</label>
+                <button onclick="showGraph('losses')" class="active" id="btn-losses">Loss Functions</button>
+                <button onclick="showGraph('performance')" id="btn-performance">Performance Metrics</button>
+                <button onclick="showGraph('combined')" id="btn-combined">Combined Overview</button>
+            </div>
+        </div>
+
+        <div class="graph-container" id="losses-container">
+            <div class="graph-title">Training Loss Functions Over Epochs</div>
+            <div class="graph-subtitle">Box Loss, Classification Loss, and DFL Loss</div>
+            <canvas id="lossChart"></canvas>
+            <div class="paper-info">Figure 1: Evolution of loss functions during training. Box loss measures bounding box regression accuracy, classification loss measures object classification accuracy, and DFL (Distribution Focal Loss) measures localization quality.</div>
+        </div>
+
+        <div class="graph-container" id="performance-container" style="display: none;">
+            <div class="graph-title">Model Performance Metrics Over Epochs</div>
+            <div class="graph-subtitle">Precision, Recall, mAP@0.5, and mAP@0.5:0.95</div>
+            <canvas id="performanceChart"></canvas>
+            <div class="paper-info">Figure 2: Performance metrics evolution during training. Precision (P), Recall (R), mAP@0.5, and mAP@0.5:0.95 demonstrate the model's detection and localization capabilities.</div>
+        </div>
+
+        <div class="graph-container" id="combined-container" style="display: none;">
+            <div class="graph-title">Training Overview: Loss and Performance</div>
+            <div class="graph-subtitle">Normalized metrics showing training progression</div>
+            <canvas id="combinedChart"></canvas>
+            <div class="paper-info">Figure 3: Normalized training overview showing the relationship between loss reduction and performance improvement. All metrics are normalized to [0,1] for comparative visualization.</div>
+        </div>
+    </div>
+
+    <script>
+        // Parse CSV data
+        const csvData = `Epoch,GPU_mem(GB),box_loss,cls_loss,dfl_loss,Box(P),Recall,mAP50,mAP50-95
+1,2,1.447,2.03,1.614,0.788,0.527,0.621,0.299
+2,2.51,1.471,1.714,1.604,0.502,0.455,0.392,0.145
+3,2.52,1.498,1.534,1.625,0.383,0.216,0.199,0.0801
+4,2.52,1.518,1.483,1.653,0.1,0.0802,0.0203,0.00606
+5,2.52,1.5,1.357,1.641,0.802,0.525,0.648,0.305
+6,2.52,1.465,1.273,1.608,0.74,0.614,0.689,0.319
+7,2.52,1.43,1.205,1.578,0.869,0.667,0.774,0.378
+8,2.54,1.4,1.185,1.552,0.797,0.673,0.759,0.379
+9,2.56,1.377,1.154,1.519,0.74,0.642,0.728,0.348
+10,2.57,1.383,1.117,1.544,0.809,0.765,0.832,0.468
+11,2.59,1.357,1.114,1.521,0.85,0.698,0.783,0.44
+12,2.59,1.321,1.073,1.484,0.886,0.735,0.799,0.442
+13,2.59,1.302,1.025,1.492,0.928,0.784,0.876,0.495
+14,2.59,1.332,1.057,1.502,0.871,0.778,0.835,0.467
+15,2.59,1.298,1.011,1.471,0.888,0.687,0.761,0.394
+16,2.59,1.269,0.9716,1.447,0.799,0.802,0.853,0.469
+17,2.61,1.271,0.9729,1.449,0.89,0.798,0.85,0.529
+18,2.63,1.257,0.9492,1.438,0.892,0.819,0.876,0.524
+19,2.64,1.268,0.9304,1.439,0.875,0.821,0.853,0.51
+20,2.64,1.263,0.909,1.435,0.871,0.802,0.843,0.493
+21,2.64,1.226,0.9103,1.402,0.908,0.857,0.896,0.543
+22,2.64,1.227,0.8783,1.404,0.937,0.825,0.891,0.536
+23,2.64,1.194,0.8577,1.393,0.917,0.818,0.883,0.529
+24,2.64,1.232,0.8875,1.411,0.903,0.827,0.885,0.546
+25,2.64,1.198,0.8542,1.388,0.92,0.802,0.866,0.563
+26,2.64,1.186,0.8588,1.392,0.92,0.79,0.844,0.509
+27,2.64,1.182,0.8296,1.385,0.914,0.852,0.901,0.557
+28,2.64,1.174,0.8129,1.375,0.931,0.836,0.889,0.556
+29,2.64,1.185,0.8232,1.382,0.918,0.826,0.881,0.524
+30,2.64,1.168,0.8244,1.356,0.945,0.849,0.9,0.563
+31,2.64,1.161,0.7818,1.369,0.886,0.858,0.914,0.575
+32,2.64,1.154,0.7964,1.361,0.953,0.833,0.886,0.549
+33,2.64,1.161,0.7859,1.364,0.958,0.84,0.908,0.566
+34,2.64,1.157,0.7767,1.351,0.869,0.864,0.879,0.544
+35,2.64,1.156,0.7829,1.364,0.925,0.852,0.888,0.545
+36,2.64,1.116,0.7689,1.338,0.935,0.864,0.909,0.563
+37,2.64,1.11,0.7309,1.335,0.873,0.847,0.892,0.552
+38,2.64,1.112,0.7509,1.343,0.964,0.833,0.894,0.587
+39,2.64,1.116,0.7494,1.336,0.985,0.822,0.89,0.568
+40,2.64,1.086,0.7159,1.31,0.928,0.852,0.901,0.556
+41,2.64,1.11,0.73,1.334,0.959,0.863,0.912,0.588
+42,2.64,1.097,0.7318,1.329,0.966,0.815,0.888,0.553
+43,2.64,1.095,0.7136,1.32,0.944,0.833,0.871,0.532
+44,2.64,1.07,0.6969,1.304,0.966,0.84,0.896,0.582
+45,2.64,1.093,0.6898,1.309,0.964,0.846,0.897,0.589
+46,2.64,1.07,0.674,1.305,0.928,0.833,0.89,0.553
+47,2.64,1.086,0.6912,1.309,0.984,0.858,0.916,0.586
+48,2.64,1.051,0.6831,1.295,0.885,0.858,0.905,0.545
+49,2.64,1.06,0.6764,1.297,0.961,0.827,0.908,0.576
+50,2.64,1.068,0.6699,1.293,0.95,0.877,0.924,0.582
+51,2.64,1.049,0.6742,1.29,0.972,0.852,0.932,0.593
+52,2.64,1.054,0.6675,1.3,0.949,0.877,0.906,0.586
+53,2.64,1.034,0.6469,1.286,0.955,0.852,0.912,0.595
+54,2.64,1.048,0.6628,1.289,0.919,0.877,0.906,0.581
+55,2.64,1.009,0.6329,1.259,0.934,0.875,0.899,0.596
+56,2.64,1.007,0.64,1.265,0.946,0.857,0.908,0.592
+57,2.64,1.021,0.628,1.273,0.951,0.84,0.898,0.587
+58,2.64,1.045,0.6315,1.28,0.946,0.871,0.904,0.59
+59,2.64,1.007,0.635,1.26,0.979,0.869,0.91,0.597
+60,2.64,1.014,0.6311,1.271,0.978,0.827,0.905,0.589
+61,2.64,0.9996,0.616,1.257,0.973,0.876,0.914,0.598
+62,2.64,0.9921,0.6195,1.249,0.963,0.864,0.906,0.601
+63,2.64,0.9943,0.6094,1.253,0.951,0.858,0.915,0.586
+64,2.64,1.006,0.6169,1.257,0.965,0.862,0.919,0.604
+65,2.64,0.9923,0.5948,1.254,0.961,0.84,0.902,0.578
+66,2.64,0.9939,0.5984,1.239,0.972,0.863,0.911,0.595
+67,2.64,0.9718,0.5997,1.241,0.933,0.859,0.888,0.575
+68,2.64,0.9668,0.5846,1.237,0.969,0.858,0.915,0.592
+69,2.64,0.9653,0.5803,1.227,0.961,0.87,0.907,0.587
+70,2.64,0.9609,0.5917,1.212,0.955,0.877,0.917,0.602
+71,2.64,0.9535,0.5801,1.225,0.943,0.87,0.917,0.607
+72,2.64,0.9669,0.6076,1.24,0.953,0.867,0.898,0.597
+73,2.64,0.9537,0.5795,1.225,0.959,0.855,0.906,0.597
+74,2.64,0.9528,0.5688,1.226,0.982,0.864,0.906,0.609
+75,2.64,0.9526,0.5603,1.221,0.955,0.858,0.896,0.604
+76,2.64,0.9619,0.583,1.224,0.975,0.864,0.901,0.621
+77,2.64,0.9202,0.5627,1.212,0.986,0.877,0.909,0.606
+78,2.64,0.9494,0.556,1.226,0.96,0.888,0.916,0.602
+79,2.64,0.9156,0.558,1.203,0.982,0.858,0.917,0.6
+80,2.64,0.9201,0.5518,1.2,0.969,0.877,0.93,0.621
+81,2.64,0.9174,0.5541,1.205,0.987,0.864,0.915,0.621
+82,2.64,0.926,0.5634,1.213,0.973,0.864,0.915,0.595
+83,2.64,0.9037,0.5474,1.193,0.984,0.883,0.918,0.615
+84,2.64,0.9142,0.5444,1.207,0.979,0.849,0.919,0.627
+85,2.64,0.9052,0.5394,1.192,0.966,0.868,0.911,0.616
+86,2.64,0.8663,0.5183,1.172,0.934,0.889,0.917,0.628
+87,2.64,0.9072,0.5424,1.204,0.977,0.883,0.913,0.621
+88,2.64,0.8842,0.5214,1.178,0.972,0.87,0.919,0.611
+89,2.64,0.8766,0.5171,1.181,0.97,0.858,0.92,0.611
+90,2.64,0.8874,0.5396,1.181,0.933,0.87,0.917,0.612
+91,2.64,0.8885,0.5322,1.189,0.97,0.864,0.913,0.603
+92,2.64,0.8686,0.5175,1.175,0.972,0.877,0.916,0.613
+93,2.64,0.8708,0.5145,1.167,0.978,0.877,0.923,0.618
+94,2.64,0.847,0.5021,1.161,0.966,0.883,0.916,0.609
+95,2.64,0.8611,0.5104,1.172,0.96,0.894,0.93,0.617
+96,2.64,0.8593,0.5129,1.169,0.977,0.883,0.922,0.634
+97,2.64,0.8533,0.5097,1.164,0.951,0.858,0.912,0.605
+98,2.64,0.8414,0.4985,1.166,0.976,0.883,0.905,0.617
+99,2.64,0.8381,0.4982,1.155,0.979,0.882,0.913,0.612`;
+
+        // Parse CSV data
+        const lines = csvData.split('\n');
+        const headers = lines[0].split(',');
+        const data = lines.slice(1).map(line => {
+            const values = line.split(',');
+            const obj = {};
+            headers.forEach((header, i) => {
+                obj[header] = header === 'Epoch' ? parseInt(values[i]) : parseFloat(values[i]);
+            });
+            return obj;
+        });
+
+        // Extract data arrays
+        const epochs = data.map(row => row.Epoch);
+        const boxLoss = data.map(row => row.box_loss);
+        const clsLoss = data.map(row => row.cls_loss);
+        const dflLoss = data.map(row => row.dfl_loss);
+        const precision = data.map(row => row['Box(P)']);
+        const recall = data.map(row => row.Recall);
+        const mAP50 = data.map(row => row.mAP50);
+        const mAP50_95 = data.map(row => row['mAP50-95']);
+
+        // Chart configuration
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Epoch',
+                            font: {
+                                size: 12,
+                                family: 'Times New Roman'
+                            }
+                        },
+                        ticks: {
+                            font: {
+                                size: 10,
+                                family: 'Times New Roman'
+                            }
+                        },
+                        grid: {
+                            color: '#e0e0e0'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            font: {
+                                size: 12,
+                                family: 'Times New Roman'
+                            }
+                        },
+                        ticks: {
+                            font: {
+                                size: 10,
+                                family: 'Times New Roman'
+                            }
+                        },
+                        grid: {
+                            color: '#e0e0e0'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 11,
+                                family: 'Times New Roman'
+                            },
+                            boxWidth: 20,
+                            padding: 15
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.1
+                    },
+                    point: {
+                        radius: 0,
+                        hoverRadius: 4
+                    }
+                }
+            }
+        };
+
+        // Loss Chart
+        const lossChart = new Chart(document.getElementById('lossChart'), {
+            ...chartConfig,
+            data: {
+                labels: epochs,
+                datasets: [
+                    {
+                        label: 'Box Loss',
+                        data: boxLoss,
+                        borderColor: '#1f77b4',
+                        backgroundColor: 'rgba(31, 119, 180, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Classification Loss',
+                        data: clsLoss,
+                        borderColor: '#ff7f0e',
+                        backgroundColor: 'rgba(255, 127, 14, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'DFL Loss',
+                        data: dflLoss,
+                        borderColor: '#2ca02c',
+                        backgroundColor: 'rgba(44, 160, 44, 0.1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        title: {
+                            ...chartConfig.options.scales.y.title,
+                            text: 'Loss Value'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Performance Chart
+        const performanceChart = new Chart(document.getElementById('performanceChart'), {
+            ...chartConfig,
+            data: {
+                labels: epochs,
+                datasets: [
+                    {
+                        label: 'Precision',
+                        data: precision,
+                        borderColor: '#d62728',
+                        backgroundColor: 'rgba(214, 39, 40, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Recall',
+                        data: recall,
+                        borderColor: '#9467bd',
+                        backgroundColor: 'rgba(148, 103, 189, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'mAP@0.5',
+                        data: mAP50,
+                        borderColor: '#8c564b',
+                        backgroundColor: 'rgba(140, 86, 75, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'mAP@0.5:0.95',
+                        data: mAP50_95,
+                        borderColor: '#e377c2',
+                        backgroundColor: 'rgba(227, 119, 194, 0.1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        title: {
+                            ...chartConfig.options.scales.y.title,
+                            text: 'Metric Value'
+                        },
+                        min: 0,
+                        max: 1
+                    }
+                }
+            }
+        });
+
+        // Normalize data for combined chart
+        const normalize = (arr) => {
+            const min = Math.min(...arr);
+            const max = Math.max(...arr);
+            return arr.map(val => (val - min) / (max - min));
+        };
+
+        // Combined Chart
+        const combinedChart = new Chart(document.getElementById('combinedChart'), {
+            ...chartConfig,
+            data: {
+                labels: epochs,
+                datasets: [
+                    {
+                        label: 'Box Loss (normalized)',
+                        data: normalize(boxLoss).map(val => 1 - val), // Invert so improvement goes up
+                        borderColor: '#1f77b4',
+                        backgroundColor: 'rgba(31, 119, 180, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Classification Loss (normalized)',
+                        data: normalize(clsLoss).map(val => 1 - val), // Invert so improvement goes up
+                        borderColor: '#ff7f0e',
+                        backgroundColor: 'rgba(255, 127, 14, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'mAP@0.5',
+                        data: mAP50,
+                        borderColor: '#2ca02c',
+                        backgroundColor: 'rgba(44, 160, 44, 0.1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'mAP@0.5:0.95',
+                        data: mAP50_95,
+                        borderColor: '#d62728',
+                        backgroundColor: 'rgba(214, 39, 40, 0.1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                ...chartConfig.options,
+                scales: {
+                    ...chartConfig.options.scales,
+                    y: {
+                        ...chartConfig.options.scales.y,
+                        title: {
+                            ...chartConfig.options.scales.y.title,
+                            text: 'Normalized Value'
+                        },
+                        min: 0,
+                        max: 1
+                    }
+                }
+            }
+        });
+
+        // Graph switching functionality
+        function showGraph(type) {
+            // Hide all containers
+            document.getElementById('losses-container').style.display = 'none';
+            document.getElementById('performance-container').style.display = 'none';
+            document.getElementById('combined-container').style.display = 'none';
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected container and activate button
+            document.getElementById(type + '-container').style.display = 'block';
+            document.getElementById('btn-' + type).classList.add('active');
+        }
+
+        // Initialize with losses view
+        showGraph('losses');
+    </script>
+</body>
+</html>
