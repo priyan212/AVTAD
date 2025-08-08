@@ -1,7 +1,6 @@
 # AVTAD — Active Visual Tracking & Defense Mechanism
 
-**Short description**
-AVTAD (Active Visual Tracking And Defense) is a research/prototype repository that combines computer-vision-based detection with physical actuation (pan-tilt, laser, omni-wheel vehicle) to detect, track and react to aerial targets (e.g., drones). The repo contains detection models, control scripts, Arduino sketches, demo videos, and a MATLAB report used for analysis.
+AVTAD (Active Visual Tracking And Defense) is a research/prototype repository that combines computer-vision-based detection with physical actuation (pan-tilt, laser, omni-wheel vehicle) to detect, track, and react to aerial targets (e.g., drones). The repo contains detection models, control scripts, Arduino sketches, demo videos, and a MATLAB report used for analysis.
 
 ---
 
@@ -35,16 +34,16 @@ AVTAD (Active Visual Tracking And Defense) is a research/prototype repository th
 
 > (Top-level files and their purpose)
 
-* `AVTAD_BASE.py` — Main detection/control script (base station logic). Edit configuration at the top to point to your model, camera and serial port.
+* `AVTAD_BASE.py` — Main detection/control script (base station logic). Edit the configuration at the top to point to your model, camera, and serial port.
 * `AVTAD_MOUNT.py` — Mount/pan-tilt-focused script (aiming logic for servos/laser).
 * `LARGE.pt`, `MEDIUM.pt`, `LIGHT.pt` — Pretrained model weights (drop-in `.pt` files for the detection pipeline).
 * `PAN_TILT_LASER.ino` — Arduino sketch for pan-tilt laser control.
 * `OMNI_WHEEL_SERIAL.ino` — Arduino sketch for omni-wheel vehicle motion via serial commands.
 * `*.mp4` (e.g. `DETECTION_RADAR_DEMO.mp4`, `LASER_PAN_TILT.mp4`, `OMNI_WHEEL_VEHICLE_DEMO.mp4`, `OPTIMIZED_VEHICLE.mp4`, `VideoWithDrone.mp4`) — Demo videos showcasing detection, tracking, and vehicle movement.
-* `MATLAB_REPORT.html`, `MATLAB_GRAPH.png`, `REPORT_ORGANISED.html` — Analysis, visualizations and reports created using MATLAB.
+* `MATLAB_REPORT.html`, `MATLAB_GRAPH.png`, `REPORT_ORGANISED.html` — Analysis, visualizations, and reports created using MATLAB.
 * `WORK_FLOW.png` — High-level workflow diagram for the system.
 
-> Note: If any file names change in your repo, update this README accordingly.
+
 
 ---
 
@@ -160,7 +159,7 @@ If you want to replace these with your own trained model, place your `.pt` file 
 
 ## Contributing
 
-Contributions, issues and feature requests are welcome. If you want changes to this README or code improvements, please:
+Contributions, issues, and feature requests are welcome. If you want changes to this README or code improvements, please:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/xyz`)
